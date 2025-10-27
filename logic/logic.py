@@ -1,5 +1,6 @@
 from string import Template
 
+
 class PyHTML:
     """In Progress..."""
     def __init__(self, name: str = "PyHTML", title: str = "PyHTML", lang: str = "ru", theme: bool = True):
@@ -34,7 +35,7 @@ class PyHTML:
 
 
     def standard_tag(self, tag: str = "h1", content: str = "PyHTML -> Лучшая библиотека", **attributes) -> None:
-        """Функция создающая теги внутри <body>"""
+        """Функция создающая теги внутри -> body"""
         f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
 
         if f_attributes:
@@ -43,6 +44,18 @@ class PyHTML:
             element = f"<{tag}>{content}</{tag}>"
 
         self.re_data["body"] += element + "\n"
+
+
+    def head_tag(self, tag: str, content: str = "", self_closed: bool = True, **attributes) -> None:
+        """Создаёт тег внутри <head>"""
+        f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
+
+        if self_closed:
+            element = f"    <{tag} {f_attributes}>" if f_attributes else f"    <{tag}>"
+        else:
+            element = f"    <{tag} {f_attributes}>{content}</{tag}>" if f_attributes else f"    <{tag}>{content}</{tag}>"
+
+        self.re_data["head"] += element + "\n"
 
 
     def rebuild_data(self) -> dict:
