@@ -33,13 +33,30 @@ class PyHTML:
                 raise ValueError(f"Mode Error: {mode}")
 
 
+    def standard_tag(self, tag: str = "h1", content: str = "PyHTML -> Лучшая библиотека", **attributes) -> None:
+        """Функция создающая теги внутри <body>"""
+        f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
+
+        if f_attributes:
+            element = f"<{tag} {f_attributes}>{content}</{tag}>"
+        else:
+            element = f"<{tag}>{content}</{tag}>"
+
+        self.re_data["body"] += element + "\n"
+
+
     def rebuild_data(self) -> dict:
         """Перезаписывает self.re_data актуальными данными объекта"""
+        old_body = getattr(self, "re_data", {}).get("body", "")
+        old_head = getattr(self, "re_data", {}).get("head", "")
+
         self.re_data = {
             "name": self.name,
             "title": self.title,
             "lang": self.lang,
-            "theme": self.theme
+            "theme": self.theme,
+            "head": old_head,
+            "body": old_body
         }
         return self.re_data
 
