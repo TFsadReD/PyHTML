@@ -3,13 +3,19 @@ from string import Template
 
 class PyHTML:
     """In Progress..."""
-    def __init__(self, name: str = "PyHTML", title: str = "PyHTML", lang: str = "ru", theme: bool = True):
+    def __init__(self, name: str = "PyHTML", title: str = "PyHTML", lang: str = "ru", theme: bool = True, tabs: bool = True):
         self.name = name
         self.title = title
         self.lang = lang
         self.theme = theme
+
         self.html = ""
         self.css = ""
+        self.tabs = tabs
+        self.diversity_tabs = "\t" if tabs else "    "
+
+        self.containers = {}
+
         self.rebuild_data()
 
 
@@ -34,20 +40,32 @@ class PyHTML:
                 raise ValueError(f"Mode Error: {mode}")
 
 
-    def standard_tag(self, tag: str = "h1", content: str = "PyHTML -> Лучшая библиотека", **attributes) -> None:
-        """Функция создающая теги внутри -> body"""
+    def container_tag(self, tag: str = "div", *, id: str, parent: str | None = None, **attributes) -> None:
+        """Функция создающая теги-контейнеры, в которые можно класть другие теги, внутри -> body"""
+        if id in self.containers:
+            raise ValueError(f"Контейнер с id='{id}' уже существует.")
+
         f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
+        open_tag = f"<{tag} id=\"{id}\" {f_attributes}>".strip()
+        self.containers[id] = {"open": open_tag, "content": "", "close": f"</{tag}>", "parent": parent}
 
-        if f_attributes:
-            element = f"<{tag} {f_attributes}>{content}</{tag}>"
+
+    def standard_tag(self, tag: str = "h1", content: str = "PyHTML -> Лучшая библиотека", parent: str | None = None, **attributes) -> None:
+        """Функция создающая теги внутри -> body или внутри контейнера"""
+        f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
+        element = f"<{tag} {f_attributes}>{content}</{tag}>" if f_attributes else f"<{tag}>{content}</{tag}>"
+
+        if parent:
+            if parent not in self.containers:
+                raise ValueError(f"Контейнер с id='{parent}' не найден.")
+            self.containers[parent]["content"] += element + "\n"
+
         else:
-            element = f"<{tag}>{content}</{tag}>"
-
-        self.re_data["body"] += element + "\n"
+            self.re_data["body"] += element + "\n"
 
 
     def head_tag(self, tag: str, content: str = "", self_closed: bool = True, **attributes) -> None:
-        """Создаёт тег внутри <head>"""
+        """Создаёт тег внутри -> head"""
         f_attributes = " ".join([f'{key}="{value}"' for key, value in attributes.items()])
 
         if self_closed:
@@ -59,7 +77,6 @@ class PyHTML:
 
 
     def rebuild_data(self) -> dict:
-        """Перезаписывает self.re_data актуальными данными объекта"""
         old_body = getattr(self, "re_data", {}).get("body", "")
         old_head = getattr(self, "re_data", {}).get("head", "")
 
@@ -74,15 +91,47 @@ class PyHTML:
         return self.re_data
 
 
-    def build_html(self, template_path: str = "base.html"):
-        """Создаёт HTML-файл на основе шаблона и данных из self.re_data"""
-        try:
-            template_content = self.rw_files(template_path, "r")
+    def format_html(self, html: str, level: int = 1) -> str:
+        """Форматирует HTML с отступами"""
+        indent = self.diversity_tabs * level
+        lines = [line.strip() for line in html.strip().splitlines() if line.strip()]
+        return "\n".join(f"{indent}{line}" for line in lines)
 
+
+    def build_container(self, container_id: str, level: int = 1) -> str:
+        """Рекурсивно строит контейнер с учётом вложенности"""
+        container = self.containers[container_id]
+        indent = self.diversity_tabs * level
+
+        inner_html = container["content"].rstrip()
+
+        nested = [
+            self.build_container(child_id, level + 1)
+            for child_id, c in self.containers.items()
+            if c["parent"] == container_id
+        ]
+        if nested:
+            inner_html += "\n" + "\n".join(nested)
+
+        formatted_content = self.format_html(inner_html, level + 1) if inner_html else ""
+        return f"{indent}{container['open']}\n{formatted_content}\n{indent}{container['close']}"
+
+
+    def build_html(self, template_path: str = "base.html"):
+        """Создаёт HTML-файл на основе шаблона"""
+        try:
+            for container_id, container in self.containers.items():
+                if container["parent"] is None:
+                    container_html = self.build_container(container_id, level=1)
+                    self.re_data["body"] += container_html + "\n"
+
+            self.re_data["body"] = self.format_html(self.re_data["body"], level=1)
+
+            template_content = self.rw_files(template_path, "r")
             template = Template(template_content)
             rendered_html = template.safe_substitute(self.re_data)
-            output_name = f"{self.name}.html"
 
+            output_name = f"{self.name}.html"
             self.rw_files(output_name, "w", rendered_html)
             self.html = rendered_html
 
