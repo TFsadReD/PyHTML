@@ -61,7 +61,7 @@ class PyHTML:
             self.containers[parent]["content"] += element + "\n"
 
         else:
-            self.re_data["body"] += element + "\n"
+            self.re_data["body"] += f"{self.diversity_tabs}{element}\n"
 
 
     def head_tag(self, tag: str, content: str = "", self_closed: bool = True, **attributes) -> None:
@@ -103,18 +103,23 @@ class PyHTML:
         container = self.containers[container_id]
         indent = self.diversity_tabs * level
 
-        inner_html = container["content"].rstrip()
+        inner_html = container["content"].strip()
 
-        nested = [
+        nested_html = "\n".join(
             self.build_container(child_id, level + 1)
             for child_id, c in self.containers.items()
             if c["parent"] == container_id
-        ]
-        if nested:
-            inner_html += "\n" + "\n".join(nested)
+        )
 
-        formatted_content = self.format_html(inner_html, level + 1) if inner_html else ""
-        return f"{indent}{container['open']}\n{formatted_content}\n{indent}{container['close']}"
+        full_inner = ""
+        if inner_html:
+            full_inner += self.format_html(inner_html, level + 1)
+        if nested_html:
+            if full_inner:
+                full_inner += "\n"
+            full_inner += nested_html
+
+        return f"{indent}{container['open']}\n{full_inner}\n{indent}{container['close']}"
 
 
     def build_html(self, template_path: str = "base.html"):
@@ -125,7 +130,19 @@ class PyHTML:
                     container_html = self.build_container(container_id, level=1)
                     self.re_data["body"] += container_html + "\n"
 
-            self.re_data["body"] = self.format_html(self.re_data["body"], level=1)
+            lines = [ln for ln in self.re_data["body"].splitlines()]
+
+            prefixed = []
+            for ln in lines:
+                if not ln.strip():
+                    continue
+                if ln.startswith(self.diversity_tabs):
+                    prefixed.append(ln)
+                else:
+                    prefixed.append(f"{self.diversity_tabs}{ln.lstrip()}")
+
+            self.re_data["body"] = "\n".join(prefixed) + "\n"
+
 
             template_content = self.rw_files(template_path, "r")
             template = Template(template_content)
